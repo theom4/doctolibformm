@@ -75,10 +75,12 @@ async function scrapeDoctolib(email, password, number) {
         waitUntil: 'networkidle',
         timeout: 90000 
       });
-
+      const loginPagePath = path.join(screenshotDir, `login_page_${Date.now()}.png`);
+      await page.screenshot({ path: loginPagePath, fullPage: true });
+      console.log(`📸 Login page screenshot saved as ${loginPagePath}`);
       // Wait additional time for dynamic content
-      await page.waitForTimeout(3000);
-
+      await page.waitForTimeout(9000);
+        
       // Take screenshot after navigation
       try {
         const afterNavigationPath = path.join(screenshotDir, `after_navigation_${Date.now()}.png`);
