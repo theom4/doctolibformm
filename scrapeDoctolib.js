@@ -11,7 +11,7 @@ if (!fs.existsSync(screenshotDir)) {
 async function scrapeDoctolib(email, password, number) {
   let context; // BrowserContext for persistent session
   let page;
-  const acceptCookies = false; // Toggle this to true/false to enable/disable cookie acceptance
+  const acceptCookies = true; // Toggle this to true/false to enable/disable cookie acceptance
 
   try {
     const userDataDir = path.join(__dirname, 'user_data');
