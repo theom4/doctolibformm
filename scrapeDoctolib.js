@@ -59,10 +59,29 @@ async function scrapeDoctolib(email, password, number) {
         
         console.log('Analyzing login form structure...');
         
+        // Take screenshot before looking for password field
+        try {
+          await page.screenshot({ path: 'before_password_search.png', fullPage: true });
+          console.log('📸 Screenshot before password search saved as before_password_search.png');
+        } catch (screenshotError) {
+          console.warn('Could not take screenshot before password search:', screenshotError);
+        }
+        
         // Wait for the password field to be visible (this should always be present)
         const passwordInput = page.locator('input#password');
-        await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
-        console.log('Password field found.');
+        try {
+          await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
+          console.log('Password field found.');
+        } catch (passwordError) {
+          console.error('Password field not found. Taking screenshot for debugging...');
+          try {
+            await page.screenshot({ path: 'password_field_error.png', fullPage: true });
+            console.log('📸 Screenshot saved as password_field_error.png');
+          } catch (screenshotError) {
+            console.warn('Could not take screenshot:', screenshotError);
+          }
+          throw passwordError;
+        }
         
         // Check for username field with a reasonable timeout
         const usernameInput = page.locator('input#username');
@@ -74,6 +93,13 @@ async function scrapeDoctolib(email, password, number) {
           console.log('Username field found - Full login required.');
         } catch (error) {
           console.log('Username field not found - Password-only login detected.');
+          // Take screenshot when username field is not found
+          try {
+            await page.screenshot({ path: 'no_username_field.png', fullPage: true });
+            console.log('📸 Screenshot saved as no_username_field.png');
+          } catch (screenshotError) {
+            console.warn('Could not take screenshot:', screenshotError);
+          }
         }
         
         // Alternative way to detect login type by checking DOM elements
