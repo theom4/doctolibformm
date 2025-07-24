@@ -13,15 +13,28 @@ if (!fs.existsSync(htmlDir)) {
 }
 
 // Helper function to save HTML content
-async function savePageHTML(page, filename) {
+async function logPageHTML(page, stepName) {
   try {
     const htmlContent = await page.content();
-    const htmlPath = path.join(htmlDir, `${filename}_${Date.now()}.html`);
-    fs.writeFileSync(htmlPath, htmlContent);
-    console.log(`📄 HTML saved as ${htmlPath}`);
-    console.log(`📄 HTML content length: ${htmlContent.length} characters`);
+    // Strip HTML tags and clean up whitespace
+    const textContent = htmlContent
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags
+      .replace(/<[^>]*>/g, '') // Remove all HTML tags
+      .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+      .trim(); // Trim leading/trailing whitespace
+    
+    console.log(`\n=== HTML CONTENT AT ${stepName.toUpperCase()} ===`);
+    console.log(`Content length: ${textContent.length} characters`);
+    console.log(`URL: ${page.url()}`);
+    console.log('--- PAGE CONTENT ---');
+    console.log(textContent.substring(0, 2000)); // Show first 2000 characters
+    if (textContent.length > 2000) {
+      console.log('... (content truncated)');
+    }
+    console.log('--- END PAGE CONTENT ---\n');
   } catch (error) {
-    console.warn(`Could not save HTML for ${filename}:`, error);
+    console.warn(`Could not log HTML for ${stepName}:`, error);
   }
 }
 
@@ -78,7 +91,7 @@ async function scrapeDoctolib(email, password, number) {
       await page.screenshot({ path: initialBrowserPath, fullPage: true });
       console.log(`📸 Initial screenshot saved as ${initialBrowserPath}`);
       console.log(`Current URL at browser start: ${page.url()}`);
-      await savePageHTML(page, 'initial_browser_start');
+      await logPageHTML(page, 'initial_browser_start');
     } catch (screenshotError) {
       console.warn('Could not take initial browser screenshot:', screenshotError);
     }
@@ -98,11 +111,11 @@ async function scrapeDoctolib(email, password, number) {
       const loginPagePath = path.join(screenshotDir, `login_page_${Date.now()}.png`);
       await page.screenshot({ path: loginPagePath, fullPage: true });
       console.log(`📸 Login page screenshot saved as ${loginPagePath}`);
-      await savePageHTML(page, 'login_page');
+      await logPageHTML(page, 'login_page');
       // Wait additional time for dynamic content
       await page.waitForTimeout(9000);
       console.log(`URL after waiting for dynamic content: ${page.url()}`);
-      await savePageHTML(page, 'after_dynamic_content_wait');
+      await logPageHTML(page, 'after_dynamic_content_wait');
         
       // Take screenshot after navigation
       try {
@@ -110,7 +123,7 @@ async function scrapeDoctolib(email, password, number) {
         await page.screenshot({ path: afterNavigationPath, fullPage: true });
         console.log(`📸 Screenshot after navigation saved as ${afterNavigationPath}`);
         console.log(`Current URL after navigation: ${page.url()}`);
-        await savePageHTML(page, 'after_navigation');
+        await logPageHTML(page, 'after_navigation');
       } catch (screenshotError) {
         console.warn('Could not take screenshot after navigation:', screenshotError);
       }
@@ -156,14 +169,14 @@ async function scrapeDoctolib(email, password, number) {
         // Wait for page to be fully loaded
         await page.waitForLoadState('networkidle');
         console.log(`URL after networkidle: ${page.url()}`);
-        await savePageHTML(page, 'after_networkidle');
+        await logPageHTML(page, 'after_networkidle');
         
         // Take screenshot before looking for form elements
         try {
           const beforeFormSearchPath = path.join(screenshotDir, `before_form_search_${Date.now()}.png`);
           await page.screenshot({ path: beforeFormSearchPath, fullPage: true });
           console.log(`📸 Screenshot before form search saved as ${beforeFormSearchPath}`);
-          await savePageHTML(page, 'before_form_search');
+          await logPageHTML(page, 'before_form_search');
         } catch (screenshotError) {
           console.warn('Could not take screenshot before form search:', screenshotError);
         }
@@ -221,7 +234,7 @@ async function scrapeDoctolib(email, password, number) {
           const passwordErrorPath = path.join(screenshotDir, `password_field_not_found_${Date.now()}.png`);
           await page.screenshot({ path: passwordErrorPath, fullPage: true });
           console.log(`📸 Password field error screenshot saved as ${passwordErrorPath}`);
-          await savePageHTML(page, 'password_field_not_found');
+          await logPageHTML(page, 'password_field_not_found');
           
           throw new Error('Password field not found with any selector');
         }
@@ -267,7 +280,7 @@ async function scrapeDoctolib(email, password, number) {
             const passwordOnlyPath = path.join(screenshotDir, `password_only_mode_${Date.now()}.png`);
             await page.screenshot({ path: passwordOnlyPath, fullPage: true });
             console.log(`📸 Password-only mode screenshot saved as ${passwordOnlyPath}`);
-            await savePageHTML(page, 'password_only_mode');
+           await logPageHTML(page, 'password_only_mode');
           } catch (screenshotError) {
             console.warn('Could not take password-only screenshot:', screenshotError);
           }
@@ -311,16 +324,16 @@ async function scrapeDoctolib(email, password, number) {
           await usernameInput.fill(email);
           await page.waitForTimeout(1000);
           console.log(`URL after filling username: ${page.url()}`);
-          await savePageHTML(page, 'after_filling_username');
+          await logPageHTML(page, 'after_filling_username');
           await passwordInput.fill(password);
           await page.waitForTimeout(1000);
           console.log(`URL after filling password: ${page.url()}`);
-          await savePageHTML(page, 'after_filling_password');
+          await logPageHTML(page, 'after_filling_password');
 
           console.log('Clicking login button...');
           await submitButton.click();
           console.log(`URL after clicking login button: ${page.url()}`);
-          await savePageHTML(page, 'after_clicking_login_button');
+          await logPageHTML(page, 'after_clicking_login_button');
 
         } else {
           console.log('=== PASSWORD-ONLY LOGIN MODE ===');
@@ -330,7 +343,7 @@ async function scrapeDoctolib(email, password, number) {
           await passwordInput.fill(password);
           await page.waitForTimeout(1000);
           console.log(`URL after filling password (password-only): ${page.url()}`);
-          await savePageHTML(page, 'after_filling_password_only');
+          await logPageHTML(page, 'after_filling_password_only');
 
           // Find login button for password-only mode
           const loginButtonSelectors = [
@@ -363,7 +376,7 @@ async function scrapeDoctolib(email, password, number) {
           console.log('Clicking login button...');
           await loginButton.click();
           console.log(`URL after clicking login button (password-only): ${page.url()}`);
-          await savePageHTML(page, 'after_clicking_login_button_password_only');
+          await logPageHTML(page, 'after_clicking_login_button_password_only');
         }
 
         // Wait for navigation with extended timeout
@@ -385,7 +398,7 @@ async function scrapeDoctolib(email, password, number) {
           const loginFailPath = path.join(screenshotDir, `login_failed_${Date.now()}.png`);
           await page.screenshot({ path: loginFailPath, fullPage: true });
           console.log(`📸 Login failure screenshot saved as ${loginFailPath}`);
-          await savePageHTML(page, 'login_failed');
+          await logPageHTML(page, 'login_failed');
           
           // Check if there are any error messages on the page
           try {
@@ -416,11 +429,11 @@ async function scrapeDoctolib(email, password, number) {
       console.log('Page reloaded to ensure fresh state.');
       console.log(`URL after page reload: ${page.url()}`);
       await handleIdentityModal(page);
-      await savePageHTML(page, 'after_page_reload');
+      await logPageHTML(page, 'after_page_reload');
     }
 
     console.log(`Final URL before scraping: ${page.url()}`);
-    await savePageHTML(page, 'final_before_scraping');
+    await logPageHTML(page, 'final_before_scraping');
     // Continue with scraping logic...
     await performScraping(page, number);
 
@@ -430,7 +443,7 @@ async function scrapeDoctolib(email, password, number) {
       const debugErrorPath = path.join(screenshotDir, `debug_error_${Date.now()}.png`);
       await page.screenshot({ path: debugErrorPath, fullPage: true });
       console.log(`📸 Debug error screenshot saved as ${debugErrorPath}`);
-      await savePageHTML(page, 'debug_error');
+      await logPageHTML(page, 'debug_error');
     }
     throw error;
   } finally {
@@ -481,7 +494,7 @@ async function handleIdentityModal(page) {
             console.log(`Close button found with selector: ${closeSelector}`);
             await closeButton.click();
             console.log('✅ Identity verification modal closed successfully.');
-            modalClosed = true;
+            await logPageHTML(page, 'after_accepting_cookies');
             break;
           } catch (error) {
             continue;
