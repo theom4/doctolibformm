@@ -1,6 +1,13 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
+// Create screenshots directory
+const screenshotDir = path.join(__dirname, 'screenshots');
+const fs = require('fs');
+if (!fs.existsSync(screenshotDir)) {
+  fs.mkdirSync(screenshotDir, { recursive: true });
+}
+
 async function scrapeDoctolib(email, password, number) {
   let context; // BrowserContext for persistent session
   let page;
@@ -33,6 +40,15 @@ async function scrapeDoctolib(email, password, number) {
       console.log('Not on the calendar page. Starting login process...');
       await page.goto('https://pro.doctolib.fr/signin', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
+      // --- SCREENSHOT LA PRIMA PAGINĂ DE LOGIN ---
+      try {
+        const initialScreenshotPath = path.join(screenshotDir, `initial_login_page_${Date.now()}.png`);
+        await page.screenshot({ path: initialScreenshotPath, fullPage: true });
+        console.log(`📸 Screenshot pagina initiala de login salvat ca ${initialScreenshotPath}`);
+      } catch (screenshotError) {
+        console.warn('Could not take initial login page screenshot:', screenshotError);
+      }
+
       // Double-check if the navigation immediately redirected to the calendar (already logged in)
       if (page.url().includes('pro.doctolib.fr/calendar')) {
         console.log('Detected that the browser is already logged in. Skipping login steps.');
@@ -61,8 +77,9 @@ async function scrapeDoctolib(email, password, number) {
         
         // Take screenshot before looking for password field
         try {
-          await page.screenshot({ path: 'before_password_search.png', fullPage: true });
-          console.log('📸 Screenshot before password search saved as before_password_search.png');
+          const beforePasswordPath = path.join(screenshotDir, `before_password_search_${Date.now()}.png`);
+          await page.screenshot({ path: beforePasswordPath, fullPage: true });
+          console.log(`📸 Screenshot before password search saved as ${beforePasswordPath}`);
         } catch (screenshotError) {
           console.warn('Could not take screenshot before password search:', screenshotError);
         }
@@ -75,8 +92,9 @@ async function scrapeDoctolib(email, password, number) {
         } catch (passwordError) {
           console.error('Password field not found. Taking screenshot for debugging...');
           try {
-            await page.screenshot({ path: 'password_field_error.png', fullPage: true });
-            console.log('📸 Screenshot saved as password_field_error.png');
+            const passwordErrorPath = path.join(screenshotDir, `password_field_error_${Date.now()}.png`);
+            await page.screenshot({ path: passwordErrorPath, fullPage: true });
+            console.log(`📸 Screenshot saved as ${passwordErrorPath}`);
           } catch (screenshotError) {
             console.warn('Could not take screenshot:', screenshotError);
           }
@@ -95,8 +113,9 @@ async function scrapeDoctolib(email, password, number) {
           console.log('Username field not found - Password-only login detected.');
           // Take screenshot when username field is not found
           try {
-            await page.screenshot({ path: 'no_username_field.png', fullPage: true });
-            console.log('📸 Screenshot saved as no_username_field.png');
+            const noUsernameFieldPath = path.join(screenshotDir, `no_username_field_${Date.now()}.png`);
+            await page.screenshot({ path: noUsernameFieldPath, fullPage: true });
+            console.log(`📸 Screenshot saved as ${noUsernameFieldPath}`);
           } catch (screenshotError) {
             console.warn('Could not take screenshot:', screenshotError);
           }
@@ -131,9 +150,21 @@ async function scrapeDoctolib(email, password, number) {
           // SCENARIO: Full login with username and password
           console.log('=== FULL LOGIN MODE ===');
           
+          // --- ADAUGĂ ACEST BLOC PENTRU SCREENSHOT LA EROARE DE LOGIN ---
+          try {
+            await usernameInput.waitFor({ state: 'visible', timeout: 15000 });
+            await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
+            await page.waitForSelector('button[type="submit"].dl-button-primary', { state: 'visible', timeout: 15000 });
+          } catch (error) {
+            console.error(`ERROR: Login element not found: ${error.message}`);
+            const screenshotPath = path.join(screenshotDir, `login_timeout_error_${Date.now()}.png`);
+            await page.screenshot({ path: screenshotPath, fullPage: true });
+            console.log(`📸 Screenshot salvat ca ${screenshotPath}`);
+            throw error; // Re-aruncă eroarea pentru a menține fluxul original
+          }
+          // ---------------------------------------------------
+          
           console.log('Waiting for all login form elements...');
-          await usernameInput.waitFor({ state: 'visible' });
-          await passwordInput.waitFor({ state: 'visible' });
           
           // Look for submit button with multiple possible selectors
           const submitButtonSelectors = [
@@ -209,7 +240,9 @@ async function scrapeDoctolib(email, password, number) {
             console.log(`Successfully navigated to agenda page. Current URL: ${page.url()}`);
         } catch (error) {
             console.error('CRITICAL ERROR: Failed to navigate to the agenda page after login attempt.', error);
-            await page.screenshot({ path: 'login_or_agenda_navigation_error.png' });
+            const navigationErrorPath = path.join(screenshotDir, `login_or_agenda_navigation_error_${Date.now()}.png`);
+            await page.screenshot({ path: navigationErrorPath, fullPage: true });
+            console.log(`📸 Screenshot navigation error saved as ${navigationErrorPath}`);
             throw new Error('Failed to complete login or navigate to agenda. Cannot proceed.');
         }
         
@@ -514,9 +547,9 @@ async function scrapeDoctolib(email, password, number) {
   } catch (error) {
     console.error('An unhandled error occurred during a critical part of the script:', error);
     if (page) {
-        // ADAUGĂ ACEASTĂ LINIE
-        await page.screenshot({ path: 'debug_error.png', fullPage: true });
-        console.log('📸 Screenshot salvat ca debug_error.png');
+        const debugErrorPath = path.join(screenshotDir, `debug_error_${Date.now()}.png`);
+        await page.screenshot({ path: debugErrorPath, fullPage: true });
+        console.log(`📸 Screenshot salvat ca ${debugErrorPath}`);
     }
   } finally {
     if (context) {
