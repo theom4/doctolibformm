@@ -488,7 +488,9 @@ async function scrapeDoctolib(email, password, number) {
   } catch (error) {
     console.error('An unhandled error occurred during a critical part of the script:', error);
     if (page) {
-        await page.screenshot({ path: 'critical_error.png' });
+        // ADAUGĂ ACEASTĂ LINIE
+        await page.screenshot({ path: 'debug_error.png', fullPage: true });
+        console.log('📸 Screenshot salvat ca debug_error.png');
     }
   } finally {
     if (context) {
