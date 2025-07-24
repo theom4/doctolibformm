@@ -75,6 +75,7 @@ async function scrapeDoctolib(email, password, number) {
         waitUntil: 'networkidle',
         timeout: 90000 
       });
+      await page.waitForTimeout(5000); // așteaptă puțin suplimentar
       const loginPagePath = path.join(screenshotDir, `login_page_${Date.now()}.png`);
       await page.screenshot({ path: loginPagePath, fullPage: true });
       console.log(`📸 Login page screenshot saved as ${loginPagePath}`);
@@ -155,7 +156,7 @@ async function scrapeDoctolib(email, password, number) {
           try {
             console.log(`Trying password selector: ${selector}`);
             passwordInput = page.locator(selector).first();
-            await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
+            await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
             foundPasswordSelector = selector;
             console.log(`✅ Password field found with selector: ${selector}`);
             break;
