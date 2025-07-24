@@ -75,12 +75,14 @@ async function scrapeDoctolib(email, password, number) {
         waitUntil: 'networkidle',
         timeout: 90000 
       });
+      console.log(`URL after navigation to login: ${page.url()}`);
       await page.waitForTimeout(5000); // așteaptă puțin suplimentar
       const loginPagePath = path.join(screenshotDir, `login_page_${Date.now()}.png`);
       await page.screenshot({ path: loginPagePath, fullPage: true });
       console.log(`📸 Login page screenshot saved as ${loginPagePath}`);
       // Wait additional time for dynamic content
       await page.waitForTimeout(9000);
+      console.log(`URL after waiting for dynamic content: ${page.url()}`);
         
       // Take screenshot after navigation
       try {
@@ -95,7 +97,9 @@ async function scrapeDoctolib(email, password, number) {
       // Check if redirected to calendar (already logged in)
       if (page.url().includes('pro.doctolib.fr/calendar')) {
         console.log('Already logged in, redirected to calendar. Skipping login steps.');
+        console.log(`Current URL (already logged in): ${page.url()}`);
       } else {
+        console.log(`Current URL before cookie handling: ${page.url()}`);
         // Handle cookie consent with more robust approach
         if (acceptCookies) {
           console.log('Checking for cookie consent dialog...');
@@ -115,6 +119,7 @@ async function scrapeDoctolib(email, password, number) {
               console.log(`Cookie consent found with selector: ${selector}`);
               await cookieButton.click();
               await page.waitForTimeout(2000);
+              console.log(`URL after accepting cookies: ${page.url()}`);
               break;
             } catch (error) {
               continue;
@@ -124,9 +129,11 @@ async function scrapeDoctolib(email, password, number) {
 
         // Enhanced login form detection
         console.log('Analyzing login form structure with enhanced detection...');
+        console.log(`URL before form analysis: ${page.url()}`);
         
         // Wait for page to be fully loaded
         await page.waitForLoadState('networkidle');
+        console.log(`URL after networkidle: ${page.url()}`);
         
         // Take screenshot before looking for form elements
         try {
@@ -277,11 +284,14 @@ async function scrapeDoctolib(email, password, number) {
           console.log('Filling login credentials...');
           await usernameInput.fill(email);
           await page.waitForTimeout(1000);
+          console.log(`URL after filling username: ${page.url()}`);
           await passwordInput.fill(password);
           await page.waitForTimeout(1000);
+          console.log(`URL after filling password: ${page.url()}`);
 
           console.log('Clicking login button...');
           await submitButton.click();
+          console.log(`URL after clicking login button: ${page.url()}`);
 
         } else {
           console.log('=== PASSWORD-ONLY LOGIN MODE ===');
@@ -290,6 +300,7 @@ async function scrapeDoctolib(email, password, number) {
           console.log('Filling password...');
           await passwordInput.fill(password);
           await page.waitForTimeout(1000);
+          console.log(`URL after filling password (password-only): ${page.url()}`);
 
           // Find login button for password-only mode
           const loginButtonSelectors = [
@@ -321,6 +332,7 @@ async function scrapeDoctolib(email, password, number) {
 
           console.log('Clicking login button...');
           await loginButton.click();
+          console.log(`URL after clicking login button (password-only): ${page.url()}`);
         }
 
         // Wait for navigation with extended timeout
@@ -337,6 +349,7 @@ async function scrapeDoctolib(email, password, number) {
           // Check current URL and page content for debugging
           console.log(`Current URL after login attempt: ${page.url()}`);
           
+          console.log(`Final URL after failed login: ${page.url()}`);
           // Take screenshot of current state
           const loginFailPath = path.join(screenshotDir, `login_failed_${Date.now()}.png`);
           await page.screenshot({ path: loginFailPath, fullPage: true });
@@ -366,11 +379,14 @@ async function scrapeDoctolib(email, password, number) {
       }
     } else {
       console.log('Already on the calendar page. Proceeding to scrape.');
+      console.log(`Current URL (already on calendar): ${page.url()}`);
       await page.reload({ waitUntil: 'networkidle' });
       console.log('Page reloaded to ensure fresh state.');
+      console.log(`URL after page reload: ${page.url()}`);
       await handleIdentityModal(page);
     }
 
+    console.log(`Final URL before scraping: ${page.url()}`);
     // Continue with scraping logic...
     await performScraping(page, number);
 
