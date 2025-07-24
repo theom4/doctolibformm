@@ -14,7 +14,6 @@ async function scrapeDoctolib(email, password, number) {
     context = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
       slowMo: 100,
-      channel: 'chrome',
       viewport: { width: 1400, height: 900 } // Ensure viewport is large enough
     });
 
