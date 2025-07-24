@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-async function scrapeDoctolib() {
+async function scrapeDoctolib(email, password, webhookNumber) {
   let context; // BrowserContext for persistent session
   let page;
 
@@ -49,8 +49,8 @@ async function scrapeDoctolib() {
         }
 
         // --- Perform Login ---
-        const DOCTOLIB_USERNAME = 'robin.chapoutot@hotmail.com'; // Replace with your username
-        const DOCTOLIB_PASSWORD = 'Yourtarget83-'; // Replace with your password
+        const DOCTOLIB_USERNAME = email || 'robin.chapoutot@hotmail.com'; // Use provided email or fallback
+        const DOCTOLIB_PASSWORD = password || 'Yourtarget83-'; // Use provided password or fallback
         
         // Check for the password-only login scenario
         const usernameInput = page.locator('input#username');
@@ -222,7 +222,7 @@ async function scrapeDoctolib() {
 
       // --- Send Webhook ---
       console.log('\n--- Sending Webhook ---');
-      const webhookUrl = 'https://robin01.app.n8n.cloud/webhook/doctolib-appointments';
+      const webhookUrl = webhookNumber || 'https://robin01.app.n8n.cloud/webhook/doctolib-appointments';
       try {
         console.log(`Sending ${successfulScrapes.length} appointments to webhook...`);
         const response = await fetch(webhookUrl, {
@@ -263,6 +263,7 @@ async function scrapeDoctolib() {
 
 // Rulează doar dacă fișierul este executat direct
 if (require.main === module) {
+  // Pentru rularea directă, folosește valorile default
   scrapeDoctolib()
     .then(() => {
       console.log('✅ Scraping process finished');
