@@ -1,0 +1,15 @@
+{
+  "name": "doctolib-webhook-scraper",
+  "version": "1.0.0",
+  "description": "Rulează un scraper Playwright la primirea unui webhook.",
+  "main": "webhook_server.js",
+  "scripts": {
+    "start": "node webhook_server.js",
+    "start:prod": "pm2-runtime webhook_server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "playwright": "^1.44.0",
+    "pm2": "^5.4.0"
+  }
+}
