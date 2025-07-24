@@ -1,9 +1,10 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-async function scrapeDoctolib(email, password, webhookNumber) {
+async function scrapeDoctolib() {
   let context; // BrowserContext for persistent session
   let page;
+  const acceptCookies = false; // Toggle this to true/false to enable/disable cookie acceptance
 
   try {
     const userDataDir = path.join(__dirname, 'user_data');
@@ -11,8 +12,9 @@ async function scrapeDoctolib(email, password, webhookNumber) {
 
     // Launch the browser with a persistent context to maintain login sessions
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: true, // Setat pe true pentru rularea pe server
+      headless: true,
       slowMo: 100,
+      channel: 'chrome',
       viewport: { width: 1400, height: 900 } // Ensure viewport is large enough
     });
 
@@ -37,48 +39,142 @@ async function scrapeDoctolib(email, password, webhookNumber) {
         console.log('Detected that the browser is already logged in. Skipping login steps.');
       } else {
         // --- Handle Cookie Consent ---
-        console.log('Checking for cookie consent dialog...');
-        const cookieAcceptButtonSelector = 'button#didomi-notice-agree-button';
-        try {
-          await page.waitForSelector(cookieAcceptButtonSelector, { state: 'visible', timeout: 10000 });
-          console.log('Cookie consent dialog found. Clicking "Accepter".');
-          await page.click(cookieAcceptButtonSelector);
-          await page.waitForTimeout(2000);
-        } catch (error) {
-          console.log('Cookie consent dialog not found. Proceeding.');
+        if (acceptCookies) {
+          console.log('Checking for cookie consent dialog...');
+          const cookieAcceptButtonSelector = 'button#didomi-notice-agree-button';
+          try {
+            await page.waitForSelector(cookieAcceptButtonSelector, { state: 'visible', timeout: 10000 });
+            console.log('Cookie consent dialog found. Clicking "Accepter".');
+            await page.click(cookieAcceptButtonSelector);
+            await page.waitForTimeout(2000);
+          } catch (error) {
+            console.log('Cookie consent dialog not found. Proceeding.');
+          }
+        } else {
+          console.log('Cookie acceptance disabled. Skipping cookie consent dialog.');
         }
 
-        // --- Perform Login ---
-        const DOCTOLIB_USERNAME = email || 'robin.chapoutot@hotmail.com'; // Use provided email or fallback
-        const DOCTOLIB_PASSWORD = password || 'Yourtarget83-'; // Use provided password or fallback
+        // --- Perform Login with Improved Detection ---
+        const DOCTOLIB_USERNAME = 'robin.chapoutot@hotmail.com'; // Replace with your username
+        const DOCTOLIB_PASSWORD = 'Yourtarget83-'; // Replace with your password
         
-        // Check for the password-only login scenario
-        const usernameInput = page.locator('input#username');
+        console.log('Analyzing login form structure...');
+        
+        // Wait for the password field to be visible (this should always be present)
         const passwordInput = page.locator('input#password');
+        await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
+        console.log('Password field found.');
         
-        if (await passwordInput.isVisible() && !(await usernameInput.isVisible({timeout: 2000}))) {
-            // SCENARIO: Password-only login
-            console.log('Password-only login form detected.');
-            console.log('Entering password...');
-            await passwordInput.fill(DOCTOLIB_PASSWORD);
-
-            console.log('Clicking "Se connecter" button...');
-            await page.locator('button:has-text("Se connecter")').click();
-
+        // Check for username field with a reasonable timeout
+        const usernameInput = page.locator('input#username');
+        let usernameFieldExists = false;
+        
+        try {
+          await usernameInput.waitFor({ state: 'visible', timeout: 5000 });
+          usernameFieldExists = true;
+          console.log('Username field found - Full login required.');
+        } catch (error) {
+          console.log('Username field not found - Password-only login detected.');
+        }
+        
+        // Alternative way to detect login type by checking DOM elements
+        if (!usernameFieldExists) {
+          // Double-check by looking for any input with name="username" or similar
+          const alternativeUsernameSelectors = [
+            'input[name="username"]',
+            'input[name="email"]',
+            'input[type="email"]',
+            'input[placeholder*="mail" i]',
+            'input[placeholder*="utilisateur" i]'
+          ];
+          
+          for (const selector of alternativeUsernameSelectors) {
+            try {
+              const altUsernameField = page.locator(selector);
+              await altUsernameField.waitFor({ state: 'visible', timeout: 2000 });
+              console.log(`Alternative username field found with selector: ${selector}`);
+              usernameFieldExists = true;
+              break;
+            } catch (error) {
+              // Continue to next selector
+            }
+          }
+        }
+        
+        // Perform login based on detected form type
+        if (usernameFieldExists) {
+          // SCENARIO: Full login with username and password
+          console.log('=== FULL LOGIN MODE ===');
+          
+          console.log('Waiting for all login form elements...');
+          await usernameInput.waitFor({ state: 'visible' });
+          await passwordInput.waitFor({ state: 'visible' });
+          
+          // Look for submit button with multiple possible selectors
+          const submitButtonSelectors = [
+            'button[type="submit"].dl-button-primary',
+            'button[type="submit"]',
+            'button:has-text("Se connecter")',
+            'button:has-text("Connexion")',
+            '.dl-button-primary'
+          ];
+          
+          let submitButton = null;
+          for (const selector of submitButtonSelectors) {
+            try {
+              submitButton = page.locator(selector).first();
+              await submitButton.waitFor({ state: 'visible', timeout: 3000 });
+              console.log(`Submit button found with selector: ${selector}`);
+              break;
+            } catch (error) {
+              continue;
+            }
+          }
+          
+          if (!submitButton) {
+            throw new Error('Could not find submit button for full login form');
+          }
+  
+          console.log('Entering login credentials...');
+          await usernameInput.fill(DOCTOLIB_USERNAME);
+          await passwordInput.fill(DOCTOLIB_PASSWORD);
+  
+          console.log('Clicking login button...');
+          await submitButton.click();
+          
         } else {
-            // SCENARIO: Full login with username and password
-            console.log('Full login form detected.');
-            console.log('Waiting for login form elements...');
-            await usernameInput.waitFor({ state: 'visible' });
-            await passwordInput.waitFor({ state: 'visible' });
-            await page.waitForSelector('button[type="submit"].dl-button-primary', { state: 'visible' });
-    
-            console.log('Entering login credentials...');
-            await usernameInput.fill(DOCTOLIB_USERNAME);
-            await passwordInput.fill(DOCTOLIB_PASSWORD);
-    
-            console.log('Clicking login button...');
-            await page.click('button[type="submit"].dl-button-primary');
+          // SCENARIO: Password-only login
+          console.log('=== PASSWORD-ONLY LOGIN MODE ===');
+          
+          console.log('Entering password...');
+          await passwordInput.fill(DOCTOLIB_PASSWORD);
+
+          // Look for login button with multiple possible selectors
+          const loginButtonSelectors = [
+            'button:has-text("Se connecter")',
+            'button:has-text("Connexion")',
+            'button[type="submit"]',
+            '.dl-button-primary'
+          ];
+          
+          let loginButton = null;
+          for (const selector of loginButtonSelectors) {
+            try {
+              loginButton = page.locator(selector).first();
+              await loginButton.waitFor({ state: 'visible', timeout: 3000 });
+              console.log(`Login button found with selector: ${selector}`);
+              break;
+            } catch (error) {
+              continue;
+            }
+          }
+          
+          if (!loginButton) {
+            throw new Error('Could not find login button for password-only form');
+          }
+
+          console.log('Clicking "Se connecter" button...');
+          await loginButton.click();
         }
 
         // --- Wait for navigation to calendar (handles post-login/2FA redirect) ---
@@ -91,11 +187,153 @@ async function scrapeDoctolib(email, password, webhookNumber) {
             await page.screenshot({ path: 'login_or_agenda_navigation_error.png' });
             throw new Error('Failed to complete login or navigate to agenda. Cannot proceed.');
         }
+        
+        // --- Handle Identity Verification Modal (CPS) ---
+        console.log('Checking for identity verification modal...');
+        try {
+          // Look for the modal with the identity verification message
+          const identityModalSelectors = [
+            '.dl-modal-content:has-text("Confirmez votre identité")',
+            '.dl-modal-content:has-text("vérification")',
+            'div[class*="modal"]:has-text("CPS")',
+            '.dl-modal-content'
+          ];
+          
+          let modalFound = false;
+          
+          for (const modalSelector of identityModalSelectors) {
+            try {
+              const modal = page.locator(modalSelector).first();
+              await modal.waitFor({ state: 'visible', timeout: 5000 });
+              console.log(`Identity verification modal found with selector: ${modalSelector}`);
+              modalFound = true;
+              
+              // Look for the close button (X) in the modal
+              const closeButtonSelectors = [
+                '.dl-modal-close-icon button',
+                'button[aria-label="Fermer"]',
+                '.dl-modal-content button:has-text("×")',
+                '.dl-modal-content .dl-icon:has([data-icon-name*="xmark"])',
+                '.dl-modal-close-icon',
+                'button:has(.dl-icon[data-icon-name*="xmark"])'
+              ];
+              
+              let modalClosed = false;
+              
+              for (const closeSelector of closeButtonSelectors) {
+                try {
+                  const closeButton = page.locator(closeSelector).first();
+                  await closeButton.waitFor({ state: 'visible', timeout: 3000 });
+                  console.log(`Close button found with selector: ${closeSelector}`);
+                  await closeButton.click();
+                  console.log('✅ Identity verification modal closed successfully.');
+                  modalClosed = true;
+                  break;
+                } catch (error) {
+                  continue;
+                }
+              }
+              
+              if (!modalClosed) {
+                // Fallback: Try pressing Escape key
+                console.log('Close button not found, trying Escape key...');
+                await page.keyboard.press('Escape');
+                console.log('✅ Attempted to close modal with Escape key.');
+              }
+              
+              // Wait a moment for the modal to disappear
+              await page.waitForTimeout(2000);
+              break;
+              
+            } catch (error) {
+              continue;
+            }
+          }
+          
+          if (!modalFound) {
+            console.log('No identity verification modal found. Proceeding to scrape.');
+          }
+          
+        } catch (error) {
+          console.warn('Error handling identity verification modal:', error);
+          console.log('Attempting to continue with scraping...');
+        }
       }
     } else {
         console.log('Already on the calendar page. Proceeding to scrape.');
         await page.reload({ waitUntil: 'networkidle' });
         console.log('Page reloaded to ensure fresh state.');
+        
+        // --- Handle Identity Verification Modal (CPS) even when already on calendar ---
+        console.log('Checking for identity verification modal after reload...');
+        try {
+          // Look for the modal with the identity verification message
+          const identityModalSelectors = [
+            '.dl-modal-content:has-text("Confirmez votre identité")',
+            '.dl-modal-content:has-text("vérification")',
+            'div[class*="modal"]:has-text("CPS")',
+            '.dl-modal-content'
+          ];
+          
+          let modalFound = false;
+          
+          for (const modalSelector of identityModalSelectors) {
+            try {
+              const modal = page.locator(modalSelector).first();
+              await modal.waitFor({ state: 'visible', timeout: 5000 });
+              console.log(`Identity verification modal found with selector: ${modalSelector}`);
+              modalFound = true;
+              
+              // Look for the close button (X) in the modal
+              const closeButtonSelectors = [
+                '.dl-modal-close-icon button',
+                'button[aria-label="Fermer"]',
+                '.dl-modal-content button:has-text("×")',
+                '.dl-modal-content .dl-icon:has([data-icon-name*="xmark"])',
+                '.dl-modal-close-icon',
+                'button:has(.dl-icon[data-icon-name*="xmark"])'
+              ];
+              
+              let modalClosed = false;
+              
+              for (const closeSelector of closeButtonSelectors) {
+                try {
+                  const closeButton = page.locator(closeSelector).first();
+                  await closeButton.waitFor({ state: 'visible', timeout: 3000 });
+                  console.log(`Close button found with selector: ${closeSelector}`);
+                  await closeButton.click();
+                  console.log('✅ Identity verification modal closed successfully.');
+                  modalClosed = true;
+                  break;
+                } catch (error) {
+                  continue;
+                }
+              }
+              
+              if (!modalClosed) {
+                // Fallback: Try pressing Escape key
+                console.log('Close button not found, trying Escape key...');
+                await page.keyboard.press('Escape');
+                console.log('✅ Attempted to close modal with Escape key.');
+              }
+              
+              // Wait a moment for the modal to disappear
+              await page.waitForTimeout(2000);
+              break;
+              
+            } catch (error) {
+              continue;
+            }
+          }
+          
+          if (!modalFound) {
+            console.log('No identity verification modal found. Proceeding to scrape.');
+          }
+          
+        } catch (error) {
+          console.warn('Error handling identity verification modal:', error);
+          console.log('Attempting to continue with scraping...');
+        }
     }
 
     // --- 2. SCRAPE APPOINTMENTS ---
@@ -222,7 +460,7 @@ async function scrapeDoctolib(email, password, webhookNumber) {
 
       // --- Send Webhook ---
       console.log('\n--- Sending Webhook ---');
-      const webhookUrl = webhookNumber || 'https://robin01.app.n8n.cloud/webhook/doctolib-appointments';
+      const webhookUrl = 'https://robin01.app.n8n.cloud/webhook/doctolib-appointments';
       try {
         console.log(`Sending ${successfulScrapes.length} appointments to webhook...`);
         const response = await fetch(webhookUrl, {
@@ -261,18 +499,4 @@ async function scrapeDoctolib(email, password, webhookNumber) {
   }
 }
 
-// Rulează doar dacă fișierul este executat direct
-if (require.main === module) {
-  // Pentru rularea directă, folosește valorile default
-  scrapeDoctolib()
-    .then(() => {
-      console.log('✅ Scraping process finished');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Scraping process failed:', error);
-      process.exit(1);
-    });
-}
-
-module.exports = { scrapeDoctolib };
+scrapeDoctolib();
