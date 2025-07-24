@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-async function scrapeDoctolib() {
+async function scrapeDoctolib(email, password, number) {
   let context; // BrowserContext for persistent session
   let page;
   const acceptCookies = false; // Toggle this to true/false to enable/disable cookie acceptance
@@ -55,8 +55,8 @@ async function scrapeDoctolib() {
         }
 
         // --- Perform Login with Improved Detection ---
-        const DOCTOLIB_USERNAME = 'robin.chapoutot@hotmail.com'; // Replace with your username
-        const DOCTOLIB_PASSWORD = 'Yourtarget83-'; // Replace with your password
+        const DOCTOLIB_USERNAME = email;
+        const DOCTOLIB_PASSWORD = password;
         
         console.log('Analyzing login form structure...');
         
@@ -460,7 +460,7 @@ async function scrapeDoctolib() {
 
       // --- Send Webhook ---
       console.log('\n--- Sending Webhook ---');
-      const webhookUrl = 'https://robin01.app.n8n.cloud/webhook/doctolib-appointments';
+      const webhookUrl = number;
       try {
         console.log(`Sending ${successfulScrapes.length} appointments to webhook...`);
         const response = await fetch(webhookUrl, {
@@ -499,4 +499,5 @@ async function scrapeDoctolib() {
   }
 }
 
-scrapeDoctolib();
+// Export the function for use by the webhook server
+module.exports = { scrapeDoctolib };
