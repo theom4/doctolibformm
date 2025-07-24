@@ -34,6 +34,16 @@ async function scrapeDoctolib(email, password, number) {
       console.log('Creating new page in persistent context.');
     }
 
+    // --- SCREENSHOT LA PRIMA PAGINĂ CÂND SE DESCHIDE BROWSERUL ---
+    try {
+      const initialBrowserPath = path.join(screenshotDir, `initial_browser_start_${Date.now()}.png`);
+      await page.screenshot({ path: initialBrowserPath, fullPage: true });
+      console.log(`📸 Screenshot la deschiderea browserului salvat ca ${initialBrowserPath}`);
+      console.log(`Current URL at browser start: ${page.url()}`);
+    } catch (screenshotError) {
+      console.warn('Could not take initial browser screenshot:', screenshotError);
+    }
+
     // --- 1. LOGIN OR NAVIGATE ---
     // Check if we are already on the calendar page. If not, navigate and log in.
     if (!page.url().includes('pro.doctolib.fr/calendar')) {
